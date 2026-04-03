@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Slop Detector</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
+  <link rel="apple-touch-icon" href="/static/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Red+Hat+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -11,27 +13,6 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-
-  <!-- Top-right icon buttons -->
-  <div class="icon-btn-group">
-    <button class="icon-btn" id="info-btn" aria-label="About this tool" aria-haspopup="dialog" aria-controls="modal-overlay" aria-expanded="false">
-      <svg class="icon-info" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"/>
-        <path d="M12 11.25V16"/>
-        <circle cx="12" cy="7.75" r="1"/>
-      </svg>
-    </button>
-    <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode" aria-pressed="false">
-      <!-- Sun (shown in dark mode) -->
-      <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <!-- Moon (shown in light mode) -->
-      <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
-  </div>
 
   <!-- Info modal -->
   <div class="modal-overlay hidden" id="modal-overlay">
@@ -79,6 +60,23 @@
   </div>
 
   <div class="wrapper">
+    <div class="icon-btn-group">
+      <button class="icon-btn" id="info-btn" aria-label="About this tool" aria-haspopup="dialog" aria-controls="modal-overlay" aria-expanded="false">
+        <svg class="icon-info" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 11.25V16"/>
+          <circle cx="12" cy="7.75" r="1"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode" aria-pressed="false">
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
 
     <!-- Header -->
     <header>
@@ -91,6 +89,9 @@
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="text">Paste Text</button>
         <button class="tab-btn" data-tab="url">Scrape URL</button>
+        <button class="tab-btn" data-tab="upload">Upload File</button>
+        <button class="tab-btn" data-tab="compare">Compare</button>
+        <button class="tab-btn" data-tab="api">API</button>
       </div>
 
       <div class="tab-panel active" id="tab-text">
@@ -102,7 +103,7 @@
         ></textarea>
         <div class="field-meta">
           <span id="word-count" class="text-muted">0 words</span>
-          <span class="text-muted">min 20 words for best accuracy</span>
+          <span class="text-muted">20-word minimum, 50+ recommended</span>
         </div>
       </div>
 
@@ -118,11 +119,69 @@
         </div>
       </div>
 
+      <div class="tab-panel" id="tab-upload">
+        <label class="upload-field" for="input-file">
+          <input id="input-file" type="file" accept=".txt,.md,.markdown,.pdf" class="hidden-file-input" />
+          <span class="upload-title">Drop in a text, markdown, or PDF file</span>
+          <span class="upload-subtitle" id="upload-file-label">No file selected</span>
+        </label>
+        <div class="field-meta">
+          <span class="text-muted">Supported: .txt, .md, .pdf</span>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-compare">
+        <div class="compare-grid">
+          <div>
+            <label class="compare-label" for="compare-left">Sample A</label>
+            <textarea id="compare-left" class="field compare-field" placeholder="Paste the first sample here…" rows="5"></textarea>
+          </div>
+          <div>
+            <label class="compare-label" for="compare-right">Sample B</label>
+            <textarea id="compare-right" class="field compare-field" placeholder="Paste the second sample here…" rows="5"></textarea>
+          </div>
+        </div>
+        <div class="field-meta">
+          <span class="text-muted">Compare two writing samples side by side.</span>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-api">
+        <div class="api-doc">
+          <div class="api-intro">
+            <div class="api-intro-copy">
+              <div class="section-label" style="margin-bottom:0.45rem">Endpoints</div>
+              <p class="api-intro-text">Use the local JSON API for direct integration or testing. The main routes are below, followed by a sample `curl` request.</p>
+            </div>
+          </div>
+          <div class="api-doc-row">
+            <span class="api-doc-label">Analyze</span>
+            <code class="api-route"><span class="api-method">POST</span><span class="api-path">/api/analyze</span></code>
+          </div>
+          <div class="api-doc-row">
+            <span class="api-doc-label">Compare</span>
+            <code class="api-route"><span class="api-method">POST</span><span class="api-path">/api/compare</span></code>
+          </div>
+          <div class="api-doc-row">
+            <span class="api-doc-label">Health</span>
+            <code class="api-route"><span class="api-method">GET</span><span class="api-path">/api/health</span></code>
+          </div>
+          <div class="api-console">
+            <div class="api-console-bar">
+              <span class="api-console-title">Example Request</span>
+            </div>
+            <pre class="api-snippet"><code><span class="api-shell">$</span> curl -X POST http://127.0.0.1:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Paste at least 20 words here for analysis."}'</code></pre>
+          </div>
+        </div>
+      </div>
+
       <div class="error-msg hidden" id="error-box">
         <span id="error-msg-text"></span>
       </div>
 
-      <div class="btn-row">
+      <div class="btn-row" id="primary-btn-row">
         <button class="btn btn-blue" id="analyze-btn">
           <span id="btn-text">Analyze</span>
           <span id="btn-spinner" class="spinner hidden"></span>
@@ -130,8 +189,20 @@
       </div>
     </div>
 
+    <div class="card history-card hidden" id="history-card">
+      <div class="history-header">
+        <div class="section-label" style="margin-bottom:0">Recent Analyses</div>
+        <button class="text-btn" id="clear-history-btn" type="button">Clear</button>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
     <!-- Results -->
     <div class="results hidden" id="results">
+      <div class="card warning-card hidden" id="reliability-card">
+        <div class="section-label">Reliability</div>
+        <p class="warning-text" id="reliability-text"></p>
+      </div>
 
       <!-- Verdict -->
       <div class="card verdict-card" id="verdict-card">
@@ -207,6 +278,16 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="section-label">Sentence Signals</div>
+        <div class="sentence-list" id="sentence-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Phrase Hit Breakdown</div>
+        <div class="phrase-list" id="phrase-list"></div>
+      </div>
+
       <!-- Scraped preview -->
       <div class="card hidden" id="preview-card">
         <div class="preview-header">
@@ -222,7 +303,25 @@
       </div>
 
     </div>
+
+    <div class="results hidden" id="compare-results">
+      <div class="compare-result-grid" id="compare-result-grid"></div>
+    </div>
   </div>
+
+  <footer class="site-footer">
+    <p class="site-footer-copy">
+      Copyright © 2026
+      <a
+        class="site-footer-link"
+        href="https://jamieryu.com"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Jamie Ryu
+      </a>
+    </p>
+  </footer>
 
   <script src="/static/script.js"></script>
 </body>

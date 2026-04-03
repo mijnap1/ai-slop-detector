@@ -3,3 +3,4 @@ transformers
 torch
 requests
 beautifulsoup4
+pypdf
