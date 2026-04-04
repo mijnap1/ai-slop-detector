@@ -161,7 +161,7 @@ The recommended production split for this project is:
 
 This repo is prepared for that setup:
 
-- root [index.html](./index.html) and [info.html](./info.html) can be served statically by GitHub Pages
+- root [index.html](./index.html) and [info/index.html](./info/index.html) can be served statically by GitHub Pages
 - Flask also serves those same files locally
 - the backend includes CORS for local dev, GitHub Pages, and `jamieryu.com`
 

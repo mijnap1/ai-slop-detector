@@ -364,10 +364,12 @@ def index():
     return send_from_directory(app.root_path, "index.html")
 
 
+@app.route("/info")
+@app.route("/info/")
 @app.route("/info.html")
 @app.route("/how-it-works")
 def how_it_works():
-    return send_from_directory(app.root_path, "info.html")
+    return send_from_directory(os.path.join(app.root_path, "info"), "index.html")
 
 
 @app.route("/analyze", methods=["POST", "OPTIONS"])
