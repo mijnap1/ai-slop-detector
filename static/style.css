@@ -432,6 +432,12 @@ body.dark .api-method {
   border-radius: 0.5rem;
 }
 
+body.dark .error-msg {
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.22);
+  border-color: rgba(248, 113, 113, 0.38);
+}
+
 /* ── Buttons ───────────────────────────────────────────────── */
 .btn-row {
   margin-top: 1.25rem;
