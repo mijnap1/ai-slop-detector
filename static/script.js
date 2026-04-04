@@ -91,7 +91,7 @@ async function runJsonAnalysis(payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
+  const data = await readJsonResponse(res);
   if (!res.ok) throw new Error(data.error || "Analysis failed.");
   saveHistoryEntry(payload, data);
   showSingleResult(data);
@@ -108,7 +108,7 @@ async function runUploadMode() {
     method: "POST",
     body: formData,
   });
-  const data = await res.json();
+  const data = await readJsonResponse(res);
   if (!res.ok) throw new Error(data.error || "File analysis failed.");
   saveHistoryEntry({ uploaded_filename: fileInput.files[0].name }, data);
   showSingleResult(data);
@@ -123,7 +123,7 @@ async function runCompareMode() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ left_text: leftText, right_text: rightText }),
   });
-  const data = await res.json();
+  const data = await readJsonResponse(res);
   if (!res.ok) throw new Error(data.error || "Comparison failed.");
   showCompareResults(data);
 }
@@ -502,6 +502,20 @@ function setLoading(loading) {
       : activeTab === "upload"
         ? "Analyze File"
         : "Analyze";
+}
+
+async function readJsonResponse(res) {
+  const raw = await res.text();
+
+  if (!raw.trim()) {
+    throw new Error("The server returned an empty response. Check the Flask console for the real error.");
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("The server returned an invalid response. Check the Flask console for the real error.");
+  }
 }
 
 function showError(message) {

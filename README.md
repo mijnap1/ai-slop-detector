@@ -127,6 +127,31 @@ python app.py
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
+## Deploying to Railway
+
+This repo is configured for Railway with `gunicorn`.
+
+Files added for deployment:
+
+- [railway.toml](./railway.toml)
+- `gunicorn` in [requirements.txt](./requirements.txt)
+
+Railway start command:
+
+```bash
+gunicorn --bind [::]:$PORT app:app
+```
+
+Basic Railway flow:
+
+1. Push this repo to GitHub.
+2. Create a new Railway project from the GitHub repo.
+3. Railway will install dependencies from `requirements.txt`.
+4. Railway will use `railway.toml` for the start command and healthcheck.
+5. After deploy, confirm `/api/health` returns `{"status":"ok"}`.
+
+If you later move the frontend to a separate static host, point the frontend requests at the Railway backend URL.
+
 ## Notes
 
 - The first launch may take longer because the Hugging Face model downloads on first run.
