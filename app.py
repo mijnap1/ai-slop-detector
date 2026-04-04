@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import re
+from functools import lru_cache
 
 try:
     from pypdf import PdfReader
@@ -76,13 +77,31 @@ def chunk_text(text, max_words=300):
     return [" ".join(words[i:i + max_words]) for i in range(0, len(words), max_words)]
 
 
-def model_ai_score(text):
-    out = detector(text, truncation=True, max_length=512)[0]
-    label = out["label"].lower()
-    score = out["score"]
+def normalize_model_output(output):
+    label = output["label"].lower()
+    score = output["score"]
     if "chatgpt" in label or label == "fake" or label == "label_1":
         return score
     return 1.0 - score
+
+
+@lru_cache(maxsize=2048)
+def model_ai_score(text):
+    out = detector(text, truncation=True, max_length=512)[0]
+    return normalize_model_output(out)
+
+
+def batch_model_ai_scores(texts):
+    clean_texts = [text for text in texts if text]
+    if not clean_texts:
+        return {}
+
+    unique_texts = list(dict.fromkeys(clean_texts))
+    outputs = detector(unique_texts, truncation=True, max_length=512, batch_size=min(len(unique_texts), 8))
+    scores = {}
+    for text, output in zip(unique_texts, outputs):
+        scores[text] = normalize_model_output(output)
+    return scores
 
 
 def compute_phrase_hits(text):
@@ -115,15 +134,16 @@ def heuristic_ai_score(text):
     return min(density / 12.0, 1.0), hits
 
 
-def score_sentences(text):
-    sentences = split_sentences(text)
+def score_sentences(sentences, sentence_score_map):
     scored = []
 
     for sentence in sentences:
         word_count = len(sentence.split())
         if word_count < 4:
             continue
-        score = model_ai_score(sentence)
+        score = sentence_score_map.get(sentence)
+        if score is None:
+            continue
         scored.append({
             "text": sentence,
             "ai_score": round(score * 100, 1),
@@ -176,13 +196,16 @@ def verdict_payload(ai_score, human_score, reliability):
 
 def analyze_text(text):
     word_count = len(text.split())
-    sentence_count = len(split_sentences(text))
+    sentences = split_sentences(text)
+    sentence_count = len(sentences)
     chunks = chunk_text(text)
-    model_ai_scores = [model_ai_score(chunk) for chunk in chunks]
+    scorable_sentences = [sentence for sentence in sentences if len(sentence.split()) >= 4]
+    score_map = batch_model_ai_scores(chunks + scorable_sentences)
+    model_ai_scores = [score_map[chunk] for chunk in chunks]
     model_avg = sum(model_ai_scores) / len(model_ai_scores)
 
     heuristic, phrase_hits = heuristic_ai_score(text)
-    sentence_details = score_sentences(text)
+    sentence_details = score_sentences(sentences, score_map)
 
     if word_count <= SHORT_TEXT_WORD_THRESHOLD:
         sentence_scores = [item["ai_score"] / 100 for item in sentence_details if len(item["text"].split()) >= 5]

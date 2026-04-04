@@ -5,6 +5,7 @@ const STORAGE_THEME_KEY = "ai-slop-detector-theme";
 const STORAGE_HISTORY_KEY = "ai-slop-detector-history";
 const MAX_HISTORY_ITEMS = 8;
 const API_BASE_URL = resolveApiBaseUrl();
+const API_TIMEOUT_MS = 30000;
 
 const body = document.body;
 const themeBtn = document.getElementById("theme-btn");
@@ -84,7 +85,7 @@ async function handleAnalyze() {
 }
 
 async function runJsonAnalysis(payload) {
-  const res = await fetch(`${API_BASE_URL}/api/analyze`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -102,7 +103,7 @@ async function runUploadMode() {
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
 
-  const res = await fetch(`${API_BASE_URL}/api/analyze`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}/api/analyze`, {
     method: "POST",
     body: formData,
   });
@@ -116,7 +117,7 @@ async function runCompareMode() {
   const leftText = document.getElementById("compare-left").value.trim();
   const rightText = document.getElementById("compare-right").value.trim();
 
-  const res = await fetch(`${API_BASE_URL}/api/compare`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}/api/compare`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ left_text: leftText, right_text: rightText }),
@@ -485,6 +486,22 @@ async function readJsonResponse(res) {
     return JSON.parse(raw);
   } catch {
     throw new Error("The server returned an invalid response. Check the Flask console for the real error.");
+  }
+}
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("The analysis took too long to respond. The backend may be cold-starting or overloaded. Try again in a few seconds.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
