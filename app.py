@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, send_from_directory
 from transformers import pipeline
 import requests
 from bs4 import BeautifulSoup
@@ -11,6 +11,16 @@ except Exception:
     PdfReader = None
 
 app = Flask(__name__)
+
+ALLOWED_ORIGINS = {
+    "http://127.0.0.1:5000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "https://mijnap1.github.io",
+    "https://jamieryu.com",
+    "https://www.jamieryu.com",
+}
 
 print("Loading AI detection model...")
 detector = pipeline("text-classification", model="Hello-SimpleAI/chatgpt-detector-roberta")
@@ -315,14 +325,33 @@ def build_analysis_response(text="", url="", file_storage=None):
     return result
 
 
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return send_from_directory(app.root_path, "index.html")
 
 
-@app.route("/analyze", methods=["POST"])
-@app.route("/api/analyze", methods=["POST"])
+@app.route("/info.html")
+@app.route("/how-it-works")
+def how_it_works():
+    return send_from_directory(app.root_path, "info.html")
+
+
+@app.route("/analyze", methods=["POST", "OPTIONS"])
+@app.route("/api/analyze", methods=["POST", "OPTIONS"])
 def analyze():
+    if request.method == "OPTIONS":
+        return ("", 204)
     payload = request_text_payload()
     text = payload["text"]
     url = payload["url"]
@@ -338,8 +367,10 @@ def analyze():
         return jsonify({"error": f"Analysis failed: {str(exc)}"}), 400
 
 
-@app.route("/api/compare", methods=["POST"])
+@app.route("/api/compare", methods=["POST", "OPTIONS"])
 def compare():
+    if request.method == "OPTIONS":
+        return ("", 204)
     data = request.get_json() or {}
     left_text = (data.get("left_text") or "").strip()
     right_text = (data.get("right_text") or "").strip()

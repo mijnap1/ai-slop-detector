@@ -112,6 +112,8 @@ h1 {
 
 /* ── Top icons ─────────────────────────────────────────────── */
 .icon-btn-group {
+  position: relative;
+  z-index: 30;
   width: 100%;
   display: flex;
   justify-content: flex-end;
@@ -120,6 +122,8 @@ h1 {
 }
 
 .icon-btn {
+  position: relative;
+  z-index: 31;
   width: 44px;
   height: 44px;
   display: inline-flex;
@@ -132,6 +136,8 @@ h1 {
   box-shadow: var(--icon-shadow);
   backdrop-filter: blur(14px);
   cursor: pointer;
+  pointer-events: auto;
+  text-decoration: none;
   transition:
     transform 0.15s ease,
     background-color 0.2s ease,

@@ -152,6 +152,39 @@ Basic Railway flow:
 
 If you later move the frontend to a separate static host, point the frontend requests at the Railway backend URL.
 
+## GitHub Pages + Railway
+
+The recommended production split for this project is:
+
+- frontend on GitHub Pages at `jamieryu.com/ai-slop-detector`
+- backend on Railway for Flask + model inference
+
+This repo is prepared for that setup:
+
+- root [index.html](./index.html) and [info.html](./info.html) can be served statically by GitHub Pages
+- Flask also serves those same files locally
+- the backend includes CORS for local dev, GitHub Pages, and `jamieryu.com`
+
+### One required step
+
+Set the Railway backend URL in the `<meta name="api-base-url">` tag inside [index.html](./index.html).
+
+Example:
+
+```html
+<meta name="api-base-url" content="https://your-railway-app.up.railway.app">
+```
+
+Current behavior:
+
+- on `127.0.0.1:5000`, the frontend uses same-origin Flask
+- on `127.0.0.1:5500`, the frontend automatically uses `http://127.0.0.1:5000`
+- on GitHub Pages, it will use the configured `api-base-url`
+
+### GitHub Pages path
+
+If the GitHub repository name is `ai-slop-detector`, the project site path will be `/ai-slop-detector`, which is the path you want under your custom domain.
+
 ## Notes
 
 - The first launch may take longer because the Hugging Face model downloads on first run.

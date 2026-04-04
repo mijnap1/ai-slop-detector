@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How It Works — AI Slop Detector</title>
+  <link rel="icon" type="image/svg+xml" href="./static/logo.svg" />
+  <link rel="apple-touch-icon" href="./static/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Red+Hat+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090d16;
+      --panel: rgba(255, 255, 255, 0.04);
+      --panel-strong: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f8fafc;
+      --text-soft: #b8c2d3;
+      --text-faint: #7a8699;
+      --blue: #60a5fa;
+      --green: #4ade80;
+      --red: #f87171;
+      --amber: #fbbf24;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(96, 165, 250, 0.08), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .back {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 20;
+      color: var(--text-faint);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.16s ease;
+    }
+
+    .back:hover { color: var(--text); }
+
+    .page {
+      width: min(100%, 840px);
+      margin: 0 auto;
+      padding: 88px 24px 96px;
+    }
+
+    .hero {
+      margin-bottom: 44px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.72rem;
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.12);
+      color: #93c5fd;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 7vw, 4.25rem);
+      line-height: 0.96;
+      letter-spacing: -0.06em;
+      font-weight: 900;
+      margin-bottom: 16px;
+    }
+
+    .intro {
+      max-width: 760px;
+      color: var(--text-soft);
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+
+    .summary {
+      margin: 36px 0 0;
+      padding: 28px 28px 24px;
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(74, 222, 128, 0.05));
+      border: 1px solid rgba(96, 165, 250, 0.14);
+      border-radius: 18px;
+    }
+
+    .summary-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      margin-bottom: 12px;
+    }
+
+    .summary p {
+      color: #d7deeb;
+      line-height: 1.8;
+    }
+
+    .section {
+      margin-top: 60px;
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    p {
+      color: var(--text-soft);
+      line-height: 1.82;
+      margin-bottom: 16px;
+      font-size: 0.96rem;
+    }
+
+    p strong { color: var(--text); font-weight: 600; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      margin-bottom: 6px;
+    }
+
+    .metric.blue { color: var(--blue); }
+    .metric.green { color: var(--green); }
+    .metric.red { color: var(--red); }
+
+    .metric-copy {
+      color: var(--text-soft);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .formula {
+      margin: 20px 0 0;
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--border);
+      font-family: 'Red Hat Mono', ui-monospace, monospace;
+      color: #d7deeb;
+      line-height: 1.9;
+      font-size: 0.84rem;
+      overflow-x: auto;
+    }
+
+    .formula .accent { color: #93c5fd; }
+    .formula .dim { color: #6b7280; }
+
+    .insight-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .insight {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 16px 18px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .insight-badge {
+      flex-shrink: 0;
+      min-width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .insight-badge.blue { background: rgba(96, 165, 250, 0.12); color: #93c5fd; }
+    .insight-badge.green { background: rgba(74, 222, 128, 0.12); color: #86efac; }
+    .insight-badge.red { background: rgba(248, 113, 113, 0.12); color: #fca5a5; }
+    .insight-badge.amber { background: rgba(251, 191, 36, 0.12); color: #fcd34d; }
+
+    .insight-text {
+      color: var(--text-soft);
+      line-height: 1.7;
+      font-size: 0.93rem;
+    }
+
+    .chart-card {
+      margin-top: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .chart-wrap {
+      height: 280px;
+      margin-top: 12px;
+    }
+
+    .chart-caption {
+      margin-top: 14px;
+      color: var(--text-faint);
+      font-size: 0.78rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .footer-link {
+      margin-top: 64px;
+      text-align: center;
+    }
+
+    .footer-link a {
+      color: var(--text-faint);
+      text-decoration: none;
+      transition: color 0.16s ease;
+    }
+
+    .footer-link a:hover { color: var(--text); }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      .page { padding-top: 76px; }
+      .chart-wrap { height: 230px; }
+      .back { top: 18px; left: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <a href="./index.html" class="back">&larr; AI Slop Detector</a>
+
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">How It Works</span>
+      <h1>What the detector<br>is actually doing.</h1>
+      <p class="intro">
+        AI Slop Detector does not rely on a single shortcut. It blends a transformer model, phrase-pattern heuristics, sentence-level scoring, and short-text reliability logic to estimate whether a sample reads more like AI-generated prose or human writing.
+      </p>
+
+      <div class="summary">
+        <div class="summary-label">The short version</div>
+        <p>
+          The model does the heavy lifting, heuristics provide a secondary signal, sentence-level passes make the output more explainable, and short samples are deliberately softened because tiny passages are too noisy for a strong verdict. Results should be treated as a signal, not proof.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Scoring Pipeline</div>
+      <p>
+        Every input goes through the same core pipeline. The text is normalized, split into chunks for long passages, scored by a RoBERTa detector, checked for recurring AI-style phrases, and then blended into a final AI-vs-human score.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">Primary Signal</div>
+          <div class="metric blue">82%</div>
+          <p class="metric-copy">For longer passages, the transformer model dominates the blend because it captures broader language patterns better than surface-level rules.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Secondary Signal</div>
+          <div class="metric green">18%</div>
+          <p class="metric-copy">Phrase heuristics stay intentionally lighter. They are useful for explainability and nudging borderline samples, but they should not overpower the model.</p>
+        </div>
+      </div>
+      <div class="formula">
+        <span class="accent">long-text blend</span> = 0.82 × <span class="dim">model score</span> + 0.18 × <span class="dim">heuristic score</span>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Signal Blend</div>
+        <div class="chart-wrap"><canvas id="blend-chart"></canvas></div>
+        <div class="chart-caption">The model is the main classifier. Heuristics remain a smaller but interpretable adjustment layer.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Explainability</div>
+      <p>
+        The app surfaces more than a raw number. It also scores individual sentences and tracks phrase matches so the result is easier to inspect.
+      </p>
+      <div class="insight-list">
+        <div class="insight">
+          <div class="insight-badge blue">ML</div>
+          <div class="insight-text"><strong>Sentence signals</strong> show which lines skewed most strongly toward AI according to the model. This helps explain why a sample leaned one way.</div>
+        </div>
+        <div class="insight">
+          <div class="insight-badge amber">P</div>
+          <div class="insight-text"><strong>Phrase hit breakdowns</strong> list tracked wording patterns like “furthermore” or “it’s important to note,” along with how much they contributed.</div>
+        </div>
+        <div class="insight">
+          <div class="insight-badge green">R</div>
+          <div class="insight-text"><strong>Reliability messaging</strong> warns when short samples are too weak for a strong conclusion, instead of hiding that uncertainty.</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Reliability by Word Count</div>
+        <div class="chart-wrap"><canvas id="reliability-chart"></canvas></div>
+        <div class="chart-caption">Below 50 words, the detector explicitly treats the result as weak evidence. Reliability improves as sample size grows.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Short Text Handling</div>
+      <p>
+        Very short text is the hardest case for AI detection. A 20-word sample simply does not contain enough structure for a robust verdict, so the detector compresses those scores back toward neutral and may mark them as low reliability.
+      </p>
+      <div class="formula">
+        <span class="accent">very short text</span> → <span class="dim">baseline toward neutral</span> + <span class="dim">low trust in score swing</span>
+      </div>
+      <div class="insight-list">
+        <div class="insight">
+          <div class="insight-badge red">20</div>
+          <div class="insight-text"><strong>20-word minimum</strong> keeps the app from pretending that tiny samples are trustworthy.</div>
+        </div>
+        <div class="insight">
+          <div class="insight-badge amber">50+</div>
+          <div class="insight-text"><strong>50+ words recommended</strong> because the model and heuristics have enough material to become directionally useful.</div>
+        </div>
+        <div class="insight">
+          <div class="insight-badge green">90+</div>
+          <div class="insight-text"><strong>90+ words</strong> generally gives the detector its most stable and interpretable behavior.</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Verdict Confidence Curve</div>
+        <div class="chart-wrap"><canvas id="confidence-chart"></canvas></div>
+        <div class="chart-caption">Confidence grows with sample length, but short texts are intentionally flattened so they do not look more certain than they are.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Limits</div>
+      <p>
+        No detector can prove authorship. Heavily edited AI writing can look human. Highly structured human writing can sometimes look model-like. Scraped text can also be noisy if the page extractor pulls boilerplate or navigation text.
+      </p>
+      <div class="insight-list">
+        <div class="insight">
+          <div class="insight-badge red">!</div>
+          <div class="insight-text"><strong>False positives are possible.</strong> Short, repetitive, or formulaic human writing can look suspicious to the model.</div>
+        </div>
+        <div class="insight">
+          <div class="insight-badge blue">AI</div>
+          <div class="insight-text"><strong>False negatives are possible.</strong> Edited AI text can evade phrase rules and look less obviously synthetic.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-link">
+      <a href="/">&larr; Back to detector</a>
+    </div>
+  </main>
+
+  <script>
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+    const faintColor = getComputedStyle(document.documentElement).getPropertyValue('--text-faint').trim();
+
+    new Chart(document.getElementById('blend-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Transformer model', 'Phrase heuristics'],
+        datasets: [{
+          data: [82, 18],
+          backgroundColor: ['rgba(96,165,250,0.88)', 'rgba(74,222,128,0.82)'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        cutout: '70%',
+        plugins: {
+          legend: {
+            labels: { color: textColor, font: { family: 'Lexend', size: 12 } }
+          }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('reliability-chart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['20 words', '35 words', '50 words', '90 words', '150 words'],
+        datasets: [{
+          label: 'Relative reliability',
+          data: [18, 30, 46, 72, 90],
+          backgroundColor: [
+            'rgba(248,113,113,0.75)',
+            'rgba(251,191,36,0.75)',
+            'rgba(251,191,36,0.8)',
+            'rgba(74,222,128,0.78)',
+            'rgba(96,165,250,0.8)'
+          ],
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: faintColor, font: { family: 'Lexend', size: 11 } }
+          },
+          y: {
+            min: 0,
+            max: 100,
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            ticks: { color: faintColor, callback: value => value + '%' }
+          }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('confidence-chart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: ['20', '35', '50', '70', '90', '120', '180'],
+        datasets: [{
+          label: 'Effective confidence ceiling',
+          data: [52, 56, 61, 68, 76, 84, 90],
+          borderColor: 'rgba(96,165,250,0.95)',
+          backgroundColor: 'rgba(96,165,250,0.12)',
+          fill: true,
+          tension: 0.38,
+          pointRadius: 3,
+          pointBackgroundColor: '#93c5fd'
+        }]
+      },
+      options: {
+        plugins: {
+          legend: {
+            labels: { color: textColor, font: { family: 'Lexend', size: 12 } }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Word count', color: faintColor },
+            grid: { display: false },
+            ticks: { color: faintColor }
+          },
+          y: {
+            min: 45,
+            max: 100,
+            title: { display: true, text: 'Confidence ceiling', color: faintColor },
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            ticks: { color: faintColor, callback: value => value + '%' }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

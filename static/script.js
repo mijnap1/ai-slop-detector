@@ -4,13 +4,11 @@ let barChart = null;
 const STORAGE_THEME_KEY = "ai-slop-detector-theme";
 const STORAGE_HISTORY_KEY = "ai-slop-detector-history";
 const MAX_HISTORY_ITEMS = 8;
+const API_BASE_URL = resolveApiBaseUrl();
 
 const body = document.body;
 const themeBtn = document.getElementById("theme-btn");
 const infoBtn = document.getElementById("info-btn");
-const modalOverlay = document.getElementById("modal-overlay");
-const modalClose = document.getElementById("modal-close");
-const modalCloseBtn = document.getElementById("modal-close-btn");
 const analyzeBtn = document.getElementById("analyze-btn");
 const btnText = document.getElementById("btn-text");
 const btnSpinner = document.getElementById("btn-spinner");
@@ -86,7 +84,7 @@ async function handleAnalyze() {
 }
 
 async function runJsonAnalysis(payload) {
-  const res = await fetch("/analyze", {
+  const res = await fetch(`${API_BASE_URL}/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -104,7 +102,7 @@ async function runUploadMode() {
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
 
-  const res = await fetch("/analyze", {
+  const res = await fetch(`${API_BASE_URL}/api/analyze`, {
     method: "POST",
     body: formData,
   });
@@ -118,7 +116,7 @@ async function runCompareMode() {
   const leftText = document.getElementById("compare-left").value.trim();
   const rightText = document.getElementById("compare-right").value.trim();
 
-  const res = await fetch("/api/compare", {
+  const res = await fetch(`${API_BASE_URL}/api/compare`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ left_text: leftText, right_text: rightText }),
@@ -140,20 +138,6 @@ function bindIconControls() {
     applyTheme(nextTheme);
     localStorage.setItem(STORAGE_THEME_KEY, nextTheme);
   });
-
-  infoBtn.addEventListener("click", openModal);
-  modalClose.addEventListener("click", closeModal);
-  modalCloseBtn.addEventListener("click", closeModal);
-
-  modalOverlay.addEventListener("click", event => {
-    if (event.target === modalOverlay) closeModal();
-  });
-
-  document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && !modalOverlay.classList.contains("hidden")) {
-      closeModal();
-    }
-  });
 }
 
 function applyTheme(theme) {
@@ -161,20 +145,6 @@ function applyTheme(theme) {
   body.classList.toggle("dark", isDark);
   themeBtn.setAttribute("aria-pressed", String(isDark));
   themeBtn.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
-}
-
-function openModal() {
-  modalOverlay.classList.remove("hidden");
-  infoBtn.setAttribute("aria-expanded", "true");
-  body.style.overflow = "hidden";
-  modalClose.focus();
-}
-
-function closeModal() {
-  modalOverlay.classList.add("hidden");
-  infoBtn.setAttribute("aria-expanded", "false");
-  body.style.overflow = "";
-  infoBtn.focus();
 }
 
 function showSingleResult(data) {
@@ -536,4 +506,21 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function resolveApiBaseUrl() {
+  const configured = document.querySelector('meta[name="api-base-url"]')?.content?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  if (window.location.port === "5000") {
+    return "";
+  }
+
+  if (window.location.port === "5500") {
+    return "http://127.0.0.1:5000";
+  }
+
+  return "";
 }
