@@ -396,6 +396,8 @@ function saveHistoryEntry(payload, data) {
     verdict: data.verdict,
     ai_score: data.ai_score,
     timestamp: new Date().toISOString(),
+    payload,
+    result: data,
   });
 
   localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
@@ -423,6 +425,8 @@ function renderHistory() {
   history.forEach(item => {
     const row = document.createElement("div");
     row.className = "history-item";
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
     row.innerHTML = `
       <div class="history-copy">
         <div class="history-title">${escapeHtml(item.label)}</div>
@@ -430,8 +434,59 @@ function renderHistory() {
       </div>
       <div class="history-score">${item.ai_score}% AI</div>
     `;
+    row.addEventListener("click", () => restoreHistoryEntry(item));
+    row.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        restoreHistoryEntry(item);
+      }
+    });
     historyList.appendChild(row);
   });
+}
+
+function restoreHistoryEntry(item) {
+  hideError();
+  const payload = item.payload || {};
+
+  if (payload.url) {
+    activateTab("url");
+    document.getElementById("input-url").value = payload.url;
+  } else if (payload.uploaded_filename) {
+    activateTab("upload");
+    uploadFileLabel.textContent = payload.uploaded_filename;
+    fileInput.value = "";
+  } else {
+    activateTab("text");
+    const text = payload.text || "";
+    document.getElementById("input-text").value = text;
+    const words = getWordCount(text);
+    document.getElementById("word-count").textContent = `${words} word${words !== 1 ? "s" : ""}`;
+  }
+
+  if (item.result) {
+    showSingleResult(item.result);
+  }
+}
+
+function activateTab(tabName) {
+  document.querySelectorAll(".tab-btn").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.tab === tabName);
+  });
+
+  document.querySelectorAll(".tab-panel").forEach(panel => {
+    panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+  });
+
+  const isApi = tabName === "api";
+  primaryBtnRow.classList.toggle("hidden", isApi);
+  btnText.textContent = tabName === "compare"
+    ? "Compare"
+    : tabName === "url"
+      ? "Scrape & Analyze"
+      : tabName === "upload"
+        ? "Analyze File"
+        : "Analyze";
 }
 
 function animateBar(fillId, valId, targetPct) {
