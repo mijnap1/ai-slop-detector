@@ -2,7 +2,7 @@
 
 > A Flask-based AI writing detector with explainable scoring, file upload, compare mode, and a local JSON API.
 
-AI Slop Detector estimates whether a sample reads more like human writing or AI-generated text. It blends a RoBERTa detector with phrase heuristics, then surfaces the result in a browser UI with sentence-level signals, phrase hit breakdowns, compare mode, upload support, and recent-analysis history.
+AI Slop Detector estimates whether a sample reads more like human writing or AI-generated text. It blends a RoBERTa detector with phrase heuristics, structural style signals, repeated-template checks, and short-text calibration, then surfaces the result in a browser UI with sentence-level signals, phrase hit breakdowns, compare mode, upload support, and recent-analysis history.
 
 ## What It Does
 
@@ -18,16 +18,19 @@ AI Slop Detector estimates whether a sample reads more like human writing or AI-
 
 ## How It Works
 
-The detector combines two signals:
+The detector combines multiple signals:
 
 - `Hello-SimpleAI/chatgpt-detector-roberta` via Hugging Face Transformers for the main AI-vs-human classification
 - A weighted phrase heuristic layer that looks for common AI-style wording patterns
+- Structural style heuristics for overly uniform sentence lengths, repeated sentence openings, uniform paragraph rhythm, and transition-heavy essay structure
+- Extra template checks for polished “humanized AI” phrasing and generic essay boilerplate
 
 The backend also:
 
 - chunks longer text for more stable scoring
 - scores individual sentences to highlight likely AI-heavy lines
 - softens short-text verdicts because tiny samples are noisy
+- restores full saved results from recent analysis history
 
 ## UI Features
 
@@ -85,16 +88,24 @@ Simple health check endpoint.
 
 ```text
 AI-SLOP-Detector/
+├── index.html
+├── info/
+│   └── index.html
 ├── app.py
+├── railway.toml
 ├── requirements.txt
 ├── README.md
 ├── LICENSE
+├── samples/
+│   ├── ai/
+│   │   ├── ai-generated.txt
+│   │   └── humanized-ai.txt
+│   └── human/
+│       └── nyu-essay-examples.pdf
 ├── static/
 │   ├── logo.svg
 │   ├── script.js
 │   └── style.css
-└── templates/
-    └── index.html
 ```
 
 ## Getting Started
@@ -191,6 +202,7 @@ If the GitHub repository name is `ai-slop-detector`, the project site path will 
 - PDF upload requires `pypdf`, which is included in `requirements.txt`.
 - URL scraping works best on article-style pages with readable main content.
 - Very short samples are inherently noisy. The app now marks low-reliability cases instead of treating them like strong evidence.
+- The `samples/` folder contains local comparison material used to tune the heuristic layer against raw AI, humanized AI, and real human essays.
 - Results should be treated as a signal, not proof.
 
 ## License

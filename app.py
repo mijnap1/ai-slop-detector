@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import re
+import math
 from functools import lru_cache
 
 try:
@@ -59,12 +60,52 @@ AI_PHRASES = [
     (r"\bthriving\b", "thriving", 1.5),
     (r"\binvaluable\b", "invaluable", 1.5),
 ]
+HUMANIZED_AI_PATTERNS = [
+    (r"\bat the same time\b", "at the same time", 1.2),
+    (r"\bone of those\b", "one of those", 1.2),
+    (r"\bit'?s easy to\b", "it's easy to", 1.1),
+    (r"\bit'?s not just about\b", "it's not just about", 1.4),
+    (r"\bit'?s not about\b", "it's not about", 1.2),
+    (r"\bit'?s something\b", "it's something", 1.0),
+    (r"\bover time\b", "over time", 0.9),
+    (r"\bit'?s less about\b", "it's less about", 1.3),
+    (r"\bit'?s more about\b", "it's more about", 1.3),
+    (r"\bit doesn'?t always\b", "it doesn't always", 1.0),
+    (r"\bit can feel\b", "it can feel", 1.0),
+    (r"\bit helps you\b", "it helps you", 0.9),
+]
+GENERIC_ESSAY_PATTERNS = [
+    (r"\bplays a fundamental role\b", "plays a fundamental role", 2.0),
+    (r"\bis essential for\b", "is essential for", 1.8),
+    (r"\bit is important to\b", "it is important to", 1.8),
+    (r"\bpersonal and professional\b", "personal and professional", 1.5),
+    (r"\blong-term success\b", "long-term success", 1.6),
+    (r"\boverall well-being\b", "overall well-being", 1.4),
+    (r"\bin today'?s [a-z\\- ]+ world\b", "in today's ... world", 1.9),
+    (r"\ballows individuals to\b", "allows individuals to", 1.8),
+    (r"\bare more likely to\b", "are more likely to", 1.6),
+    (r"\bstrong educational foundation\b", "strong educational foundation", 2.0),
+]
 
 SHORT_TEXT_WORD_THRESHOLD = 120
 LOW_RELIABILITY_WORD_THRESHOLD = 50
 MIN_ANALYSIS_WORDS = 20
 MAX_HISTORY_ITEMS = 8
 ALLOWED_FILE_EXTENSIONS = {".txt", ".md", ".markdown", ".pdf"}
+TRANSITION_MARKERS = [
+    r"\bhowever\b",
+    r"\btherefore\b",
+    r"\badditionally\b",
+    r"\bmore importantly\b",
+    r"\bfor example\b",
+    r"\bfor instance\b",
+    r"\boverall\b",
+    r"\bin contrast\b",
+    r"\bas a result\b",
+    r"\bon the other hand\b",
+    r"\bthis suggests\b",
+    r"\bthis shows\b",
+]
 
 
 def split_sentences(text):
@@ -127,11 +168,188 @@ def compute_phrase_hits(text):
     return hits, total_weight
 
 
-def heuristic_ai_score(text):
+def compute_template_hits(text):
+    text_lower = text.lower()
+    hits = []
+    total_weight = 0.0
+
+    for pattern, label, weight in HUMANIZED_AI_PATTERNS:
+        matches = re.findall(pattern, text_lower)
+        if not matches:
+            continue
+        count = len(matches)
+        contribution = count * weight
+        hits.append({
+            "label": label,
+            "count": count,
+            "weight": weight,
+            "contribution": round(contribution, 2),
+        })
+        total_weight += contribution
+
+    hits.sort(key=lambda item: item["contribution"], reverse=True)
+    return hits, total_weight
+
+
+def compute_generic_hits(text):
+    text_lower = text.lower()
+    hits = []
+    total_weight = 0.0
+
+    for pattern, label, weight in GENERIC_ESSAY_PATTERNS:
+        matches = re.findall(pattern, text_lower)
+        if not matches:
+            continue
+        count = len(matches)
+        contribution = count * weight
+        hits.append({
+            "label": label,
+            "count": count,
+            "weight": weight,
+            "contribution": round(contribution, 2),
+        })
+        total_weight += contribution
+
+    hits.sort(key=lambda item: item["contribution"], reverse=True)
+    return hits, total_weight
+
+
+def paragraph_chunks(text):
+    parts = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    return parts if parts else [text.strip()]
+
+
+def add_style_hit(hits, label, weight, strength):
+    contribution = round(weight * strength, 2)
+    hits.append({
+        "label": label,
+        "count": 1,
+        "weight": round(weight, 2),
+        "contribution": contribution,
+    })
+    return contribution
+
+
+def coefficient_of_variation(values):
+    if not values:
+        return 0.0
+    mean = sum(values) / len(values)
+    if mean <= 0:
+        return 0.0
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    return math.sqrt(variance) / mean
+
+
+def compute_style_hits(text, sentences):
+    hits = []
+    total_weight = 0.0
+    sentence_lengths = [len(sentence.split()) for sentence in sentences if len(sentence.split()) >= 4]
+
+    if len(sentence_lengths) >= 5:
+        sent_cv = coefficient_of_variation(sentence_lengths)
+        if sent_cv < 0.22:
+            strength = min((0.22 - sent_cv) / 0.12 + 0.45, 1.6)
+            total_weight += add_style_hit(hits, "uniform sentence lengths", 2.1, strength)
+
+        openings = []
+        for sentence in sentences:
+            words = re.findall(r"\b[\w']+\b", sentence.lower())
+            if len(words) >= 2:
+                openings.append(" ".join(words[:2]))
+        if openings:
+            counts = {}
+            for opener in openings:
+                counts[opener] = counts.get(opener, 0) + 1
+            max_repeat = max(counts.values())
+            repeat_ratio = max_repeat / max(len(openings), 1)
+            if max_repeat >= 3 and repeat_ratio >= 0.34:
+                strength = min((repeat_ratio - 0.34) / 0.22 + 0.55, 1.5)
+                total_weight += add_style_hit(hits, "repeated sentence openings", 1.8, strength)
+
+    paragraphs = paragraph_chunks(text)
+    paragraph_lengths = [len(paragraph.split()) for paragraph in paragraphs if paragraph.split()]
+    if len(paragraph_lengths) >= 3:
+        paragraph_cv = coefficient_of_variation(paragraph_lengths)
+        if paragraph_cv < 0.26:
+            strength = min((0.26 - paragraph_cv) / 0.16 + 0.4, 1.35)
+            total_weight += add_style_hit(hits, "uniform paragraph lengths", 1.5, strength)
+
+    transition_count = 0
+    lowered = text.lower()
+    for pattern in TRANSITION_MARKERS:
+        transition_count += len(re.findall(pattern, lowered))
     word_count = max(len(text.split()), 1)
-    hits, total_weight = compute_phrase_hits(text)
+    transition_density = transition_count / (word_count / 100)
+    if word_count >= 120 and transition_density >= 1.6:
+        strength = min((transition_density - 1.6) / 1.8 + 0.5, 1.5)
+        total_weight += add_style_hit(hits, "transition-heavy structure", 1.5, strength)
+
+    hits.sort(key=lambda item: item["contribution"], reverse=True)
+    return hits, total_weight
+
+
+def repeated_ngram_score(text):
+    words = re.findall(r"\b[\w']+\b", text.lower())
+    if len(words) < 60:
+        return [], 0.0
+
+    counts = {}
+    for n in (3, 4):
+        for i in range(len(words) - n + 1):
+            ngram = " ".join(words[i:i + n])
+            counts[ngram] = counts.get(ngram, 0) + 1
+
+    hits = []
+    total_weight = 0.0
+    repetitive = [(ngram, count) for ngram, count in counts.items() if count >= 4]
+    repetitive.sort(key=lambda item: (-item[1], -len(item[0])))
+
+    for ngram, count in repetitive[:4]:
+        strength = min((count - 3) * 0.34, 1.45)
+        weight = 0.95 if len(ngram.split()) == 3 else 1.15
+        contribution = add_style_hit(hits, f"repeated template: {ngram}", weight, strength)
+        total_weight += contribution
+
+    return hits, total_weight
+
+
+def human_detail_score(text, sentences):
+    word_count = max(len(text.split()), 1)
+    lowered = text.lower()
+
+    first_person_hits = len(re.findall(r"\b(i|me|my|mine|we|our|ours)\b", lowered))
+    quote_hits = text.count('"') + text.count("“") + text.count("”")
+    bracket_hits = text.count("[") + text.count("]")
+
+    proper_nouns = 0
+    for sentence in sentences:
+        words = re.findall(r"\b[A-Z][a-z]+\b", sentence)
+        proper_nouns += max(len(words) - 1, 0)
+
+    sentence_lengths = [len(sentence.split()) for sentence in sentences if len(sentence.split()) >= 4]
+    sent_cv = coefficient_of_variation(sentence_lengths)
+
+    score = 0.0
+    score += min(first_person_hits / max(word_count / 100, 1), 12) / 24
+    score += min(quote_hits, 6) / 18
+    score += min(bracket_hits, 4) / 16
+    score += min(proper_nouns, 18) / 36
+    if sent_cv > 0.4:
+      score += min((sent_cv - 0.4) / 0.25, 0.18)
+
+    return min(score, 0.4)
+
+
+def heuristic_ai_score(text, sentences):
+    word_count = max(len(text.split()), 1)
+    phrase_hits, phrase_weight = compute_phrase_hits(text)
+    template_hits, template_weight = compute_template_hits(text)
+    style_hits, style_weight = compute_style_hits(text, sentences)
+    repeat_hits, repeat_weight = repeated_ngram_score(text)
+    total_weight = phrase_weight + template_weight + style_weight + repeat_weight
     density = total_weight / (word_count / 100)
-    return min(density / 12.0, 1.0), hits
+    combined_hits = sorted(phrase_hits + template_hits + style_hits + repeat_hits, key=lambda item: item["contribution"], reverse=True)
+    return min(density / 13.5, 1.0), combined_hits
 
 
 def score_sentences(sentences, sentence_score_map):
@@ -182,13 +400,15 @@ def short_text_baseline(word_count, heuristic, sentence_count):
     return 0.5
 
 
-def verdict_payload(ai_score, human_score, reliability):
+def verdict_payload(ai_score, human_score, reliability, heuristic_score=0.0, human_detail=0.0):
     margin = abs(ai_score - human_score)
 
     if reliability["state"] == "low":
         return "Low-Reliability Sample", "Weak evidence"
     if margin < 8:
         return "Unclear", "Mixed signals"
+    if human_score > ai_score and heuristic_score >= 0.12 and human_detail < 0.16 and ai_score >= 38:
+        return "Unclear", "Human-like, but structurally suspicious"
     if ai_score >= human_score:
         return "AI-Generated", "High confidence" if ai_score >= 85 else "Moderate confidence" if ai_score >= 65 else "Low confidence"
     return "Human-Written", "High confidence" if human_score >= 85 else "Moderate confidence" if human_score >= 65 else "Low confidence"
@@ -204,7 +424,8 @@ def analyze_text(text):
     model_ai_scores = [score_map[chunk] for chunk in chunks]
     model_avg = sum(model_ai_scores) / len(model_ai_scores)
 
-    heuristic, phrase_hits = heuristic_ai_score(text)
+    heuristic, phrase_hits = heuristic_ai_score(text, sentences)
+    human_detail = human_detail_score(text, sentences)
     sentence_details = score_sentences(sentences, score_map)
 
     if word_count <= SHORT_TEXT_WORD_THRESHOLD:
@@ -212,11 +433,16 @@ def analyze_text(text):
         sentence_avg = sum(sentence_scores) / len(sentence_scores) if sentence_scores else model_avg
 
         if word_count <= 60:
-            blended = 0.55 * model_avg + 0.25 * sentence_avg + 0.20 * heuristic
+            blended = 0.52 * model_avg + 0.23 * sentence_avg + 0.25 * heuristic
         else:
-            blended = 0.62 * model_avg + 0.23 * sentence_avg + 0.15 * heuristic
+            blended = 0.58 * model_avg + 0.22 * sentence_avg + 0.20 * heuristic
     else:
-        blended = 0.82 * model_avg + 0.18 * heuristic
+        blended = 0.74 * model_avg + 0.26 * heuristic
+
+    if word_count > 120:
+        blended -= 0.10 * human_detail
+    elif word_count > 60:
+        blended -= 0.06 * human_detail
 
     if word_count < LOW_RELIABILITY_WORD_THRESHOLD:
         baseline = short_text_baseline(word_count, heuristic, sentence_count)
@@ -226,12 +452,15 @@ def analyze_text(text):
         trust = 0.60 + ((word_count - LOW_RELIABILITY_WORD_THRESHOLD) / (SHORT_TEXT_WORD_THRESHOLD - LOW_RELIABILITY_WORD_THRESHOLD)) * 0.20
         blended = 0.5 + (blended - 0.5) * trust
 
+    if word_count >= 90 and heuristic >= 0.12 and human_detail < 0.16:
+        blended = max(blended, 0.43 + min(heuristic * 0.18, 0.07))
+
     blended = max(0.0, min(1.0, blended))
 
     ai_score = round(blended * 100, 1)
     human_score = round((1.0 - blended) * 100, 1)
     reliability = reliability_payload(word_count)
-    verdict, confidence_label = verdict_payload(ai_score, human_score, reliability)
+    verdict, confidence_label = verdict_payload(ai_score, human_score, reliability, heuristic, human_detail)
     confidence = round(max(ai_score, human_score), 1)
 
     return {
